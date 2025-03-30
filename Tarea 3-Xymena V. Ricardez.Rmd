@@ -1,0 +1,152 @@
+---
+title: 'Tarea 3: Phyloseq'
+author: "Xymena Vazquez"
+date: "2025-03-31"
+output: html_document
+---
+
+# **Primera parte**
+
+#### Parte 1: Preparación del entorno
+
+La primera parte consiste en preparar las librerias que se van a ocupar en todo el trabajo.
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+library(phyloseq)
+library(microbiome)
+library(ggplot2)
+library(vegan)
+library(dplyr)
+```
+
+#### **Parte 2: Objeto Phyloseq**
+
+Se debe cargar un objeto phyloseq que esta dentro de la libreria "microbiome". Los datos ocuapdos estan en "dietswap".
+
+```{r}
+data("dietswap", package = "microbiome")
+ps <- dietswap
+ps
+```
+
+De acuerdo a la tabla obtenida: \*¿Cuántas muestras y taxones contiene el objeto? Contiene 222 muestras y 130 taxones.
+
+\*¿Qué variables están disponibles en los metadatos de las muestras? Hay 8 variables: subject, nationality, sample, timepoint.within.group, sex, group, timepoint, bm1_group.
+
+Podemos conocerlo mediante el siguiente código:
+
+```{r}
+head(sample_data(ps))
+```
+
+#### Parte 3: Curvas de rarefacción
+
+Se crean curvas de rarefacción por medio de la funcion "rarecurve" en el paquete "vegan". Para obtener este gráfico, se obtuvo ayuda de la siguiente página: <https://github.com/joey711/phyloseq/issues/1641>
+
+```{r}
+data("dietswap")
+taxa_are_rows(dietswap)
+tabla<- t(otu_table(dietswap))
+class(tabla)<- "matrix"
+class(tabla)
+tabla<- as(t(otu_table(dietswap)), "matrix")
+class(tabla)
+raremax<- min(rowSums(tabla))
+system.time(rarecurve(tabla, step = 100, sample = raremax, col = "pink", label = FALSE ))
+
+```
+
+*¿Qué indican estas curvas? Sirven para visualizar que tan diverso es un ambiente y cual es el numero de especies maximas halladas en ese sitio.* ¿Hay muestras que deberían descartarse por bajo conteo? Sí, porque puede provocar que las curvan se muestren incompletas o no brinden todo a la información necesaria para identifcar que tan diverso es el sitio.
+
+#### Parte 4: Diversidad alfa
+
+Calcular la diversidad alfa con ayuda de la función plot_richness. Se calcula la observada, Shannon y Simpson.
+
+```{r}
+#observed
+plot_richness(ps, measures = "Observed")
+
+#Shannon
+plot_richness(ps, measures = "Shannon")
+
+#Simpson
+plot_richness(ps, measures = "Simpson")
+
+```
+
+¿Qué interpretas de estas gráficas? ¿Hay diferencias notorias entre grupos?
+
+#### Parte 5: Filtrado y transformación
+
+Se necesita recolectar unicamente los generos que resultan mucho mas abundantes, en este caso solo los que tienen mas de 0.1% de abundancia relativa.
+
+```{r}
+filtrado <- filter_taxa(ps, function(x) mean (x) >0.001, TRUE)
+filtrado
+```
+
+#### Parte 6: Ordención
+
+Para esta parte, la ordención de escalamiento multidimensional no métrico y el índice de diversidad Bray-Curtis.
+
+```{r}
+ps1<-otu_table(ps)
+ordencion<- ordinate(ps1, "NMDS", "bray")
+```
+
+Para realizar el PCoA se ocupa la finción "plot_ordenation" y se ocupa la medida de Bray-Curtis.
+
+```{r}
+plot_ordination(ps, ordencion)
+```
+
+¿Los grupos se separan visiblemente? ¿Qué podría estar causando esas diferencias?
+
+#### **Parte 7: Rank abundance**
+
+Se ocupó el paque ggplot2 para realizar el grafico; la visualización de las abundancias se hizo a nivel de familia. El codigo fue hecho basado en el mostrado en: <https://www.researchgate.net/post/Plotting-rank-abundance-curve-in-phyloseq>
+
+```{r}
+#Se transforma los taxones a porcentaje 
+phyloTemp = transform_sample_counts(ps, function(x) 1e+02 * x/sum(x))
+
+clusterData = psmelt(phyloTemp)
+clusterData = dplyr::filter(clusterData, Abundance > 0)
+
+#Se calcula la media y se escogen los taxones que se van a mostrar
+clusterAgg = aggregate(Abundance ~ OTU + Family, data=clusterData, mean)
+clusterAgg = aggregate(Abundance ~ OTU + Family,data=clusterData,mean)
+
+#Filtrado y eleccion de los numeros de la tabla
+clusterAgg = clusterAgg[order(-clusterAgg$Abundance),][1:100,]
+
+ggplot(clusterAgg,aes(x=reorder(OTU,-Abundance),y=Abundance)) +
+  geom_point(aes(color=Family), size = 3)+
+  theme(axis.ticks = element_blank(), axis.text.x = element_blank()) +
+  scale_y_log10()
+
+```
+
+#### Parte 8: Gráficas apiladas
+
+Para realizarlas, se ocupa la funcion "plot bar" y nuevamente se agrypan por familias.
+
+```{r}
+plot_bar(ps, fill = "Family") + 
+  geom_bar(aes(color=Family, fill=Family), stat="identity", position="stack")
+```
+
+#### Parte 9: Exportar resultados
+
+Los datos se eportan de una tabla de abundancias a un archivo CSV.
+
+```{r eval=FALSE, include=FALSE}
+ps
+csv<- as.data.frame(abundances(ps))
+csv
+write.csv(csv, "abundnacias.csv")
+```
+
+# Parte 2
+
+Uso de la base "GlobalPatterns", incluido en Phyloseq.
