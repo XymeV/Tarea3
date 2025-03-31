@@ -224,7 +224,8 @@ ggplot(familia, aes(x = Rank, y = Freq)) +
 #Grafico apilado a nivel de filo
 phylum<- tax_glom(gb, taxrank = "Phylum")
 rabundancia<- transform_sample_counts(phylum, function(x) x * 100 / sum(x))
-
+tax_table(gb)
+View(tax_table(gb))
 tablafilo<- otu_table(rabundancia)
 taxafilo<- tax_table(rabundancia)
 
@@ -235,6 +236,7 @@ filo<- filo %>% filter(Abundance > 0)
 
 samplefilo <- as.data.frame(sample_data(rabundancia))
 filo$SampleType <- samplefilo$SampleType[match(filo$SampleID, rownames(samplefilo))]
+
 
 
 #grafico apilado
